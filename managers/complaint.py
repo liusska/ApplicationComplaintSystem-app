@@ -12,6 +12,10 @@ class ComplaintManager:
         return ComplaintModel.query.all()
 
     @staticmethod
+    def issue_transaction():
+        pass
+
+    @staticmethod
     def create(complaint_data, complainer_id):
         complaint_data['complainer_id'] = complainer_id
         complaint = ComplaintModel(**complaint_data)
