@@ -62,7 +62,7 @@ class WiseService:
             # "sourceAccount": <refund recipient account id>,
             "targetAccount": recipient_id,
             "quoteUuid": quote_id,
-            "customerTransactionId": str(custom_id),
+            "customerTransactionId": custom_id,
             "details": {}
          }
         resp = requests.post(url, data=json.dumps(data), headers=self.headers)
@@ -82,10 +82,5 @@ class WiseService:
 
 
 if __name__ == '__main__':
-    wise = WiseService()
-    quote_id = wise.create_quote(20)
-    recipient_id = wise.create_recipient('WiseTest Testing', 'BG18RZBB91550123456789')
-    custom_id = uuid.uuid4()
-    transfer_id = wise.create_transfer(recipient_id, quote_id, custom_id)
     status = wise.fund_transfer(transfer_id)
     print(status)
