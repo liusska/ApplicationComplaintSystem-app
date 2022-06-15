@@ -1,13 +1,20 @@
+import os
+
 from werkzeug.exceptions import NotFound
+
+from constants import TEMP_FILE_FOLDER
 from db import db
 import uuid
 from managers.auth import auth
 from models.enums import State
 from models.complaint import ComplaintModel
 from models.transaction import TransactionModel
+from services.s3 import S3Service
 from services.wise import WiseService
+from utils.helpers import decode_photo
 
 wise = WiseService()
+s3 = S3Service()
 
 
 class ComplaintManager:
@@ -34,6 +41,20 @@ class ComplaintManager:
 
     @staticmethod
     def create(complaint_data, complainer):
+        """
+        This function decodes the base64 encoded string from client
+        and upload the photo to s3 aws service.
+        Flushed the db with the newly created complaint
+        and issues a new payment transaction in  Pending state in the payment provider
+        """
+        photo_name = f'{str(uuid.uuid4())}.{complaint_data["photo_extension"]}'
+        path = os.path.join(TEMP_FILE_FOLDER, photo_name)
+        decode_photo(complaint_data['photo'], path)
+        photo_url = s3.upload_photo(path, photo_name)
+        os.remove(path)
+        complaint_data.pop('photo_extension')
+        complaint_data.pop('photo')
+        complaint_data['photo_url'] = photo_url
         complaint_data['complainer_id'] = complainer.id
         amount = complaint_data['amount']
         full_name = f'{complainer.first_name} {complainer.last_name}'
