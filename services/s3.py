@@ -23,3 +23,6 @@ class S3Service:
             return f'https://{self.bucket_name}.s3.{self.region}.amazonaws.com/{object_name}'
         except ClientError:
             raise InternalServerError('Provider is not available at the moment. Please try again later')
+
+    def delete_photo(self, object_key):
+        self.s3.Object(self.bucket_name, object_key).delete()

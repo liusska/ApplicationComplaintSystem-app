@@ -6,7 +6,7 @@ from constants import TEMP_FILE_FOLDER
 from db import db
 import uuid
 from managers.auth import auth
-from models.enums import State
+from models.enums import State, RoleType
 from models.complaint import ComplaintModel
 from models.transaction import TransactionModel
 from services.s3 import S3Service
@@ -20,6 +20,12 @@ s3 = S3Service()
 class ComplaintManager:
     @staticmethod
     def get_all():
+        current_user = auth.current_user()
+        if current_user.role == RoleType.complainer:
+            return ComplaintModel.query.filter_by(complainer_id=current_user.id).all()
+        elif current_user.role == RoleType.approver:
+            return ComplaintModel.query.filter_by(status=State.pending).all()
+
         return ComplaintModel.query.all()
 
     @staticmethod
@@ -47,13 +53,16 @@ class ComplaintManager:
         Flushed the db with the newly created complaint
         and issues a new payment transaction in  Pending state in the payment provider
         """
-        photo_name = f'{str(uuid.uuid4())}.{complaint_data["photo_extension"]}'
+        photo_name = f'{str(uuid.uuid4())}.{complaint_data.pop("photo_extension")}'
         path = os.path.join(TEMP_FILE_FOLDER, photo_name)
-        decode_photo(complaint_data['photo'], path)
-        photo_url = s3.upload_photo(path, photo_name)
-        os.remove(path)
-        complaint_data.pop('photo_extension')
-        complaint_data.pop('photo')
+        try:
+            decode_photo(complaint_data.pop('photo'), path)
+            photo_url = s3.upload_photo(path, photo_name)
+        except Exception as ex:
+            raise ex
+        finally:
+            os.remove(path)
+
         complaint_data['photo_url'] = photo_url
         complaint_data['complainer_id'] = complainer.id
         amount = complaint_data['amount']
@@ -62,7 +71,11 @@ class ComplaintManager:
         complaint = ComplaintModel(**complaint_data)
         db.session.add(complaint)
         db.session.flush()
-        ComplaintManager.issue_transaction(amount, full_name, iban, complaint.id)
+        try:
+            ComplaintManager.issue_transaction(amount, full_name, iban, complaint.id)
+        except Exception as ex:
+            s3.delete_photo(photo_name)
+            raise ex
         return complaint
 
     @staticmethod
