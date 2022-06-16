@@ -21,9 +21,9 @@ class ListCreateComplaint(Resource):
     @validate_schema(ComplaintCreateRequestSchema)
     def post(self):
         current_user = auth.current_user()
-        complaint = ComplaintManager.create(request.get_json(), current_user.id)
+        complaint = ComplaintManager.create(request.get_json(), current_user)
         schema = ComplaintCreateResponseSchema()
-        return schema.dump(complaint)
+        return schema.dump(complaint), 201
 
 
 class ComplaintDetail(Resource):
